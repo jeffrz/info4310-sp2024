@@ -1,0 +1,104 @@
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>INFO 4310 - January 29</title>
+  <link href="https://fonts.googleapis.com/css?family=Lato:400,700|Raleway:400,700" rel="stylesheet">
+  
+  <link rel="stylesheet" type="text/css" href="../css/normalize.css">
+  <link rel="stylesheet" type="text/css" href="../css/skeleton.css">
+  <link rel="stylesheet" type="text/css" href="../css/custom-style.css">
+  <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.2.0/styles/default.min.css">
+  <link rel="stylesheet" href="../css/hljs-base16.css">
+  <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.2.0/highlight.min.js"></script>
+  
+</head>
+<body>
+  <div class="container larger">
+    <h3>Prompt for Jan. 29</h3>
+    <p>
+      Today we're going to look at how to deploy applications to the web so that others can view them. The goal here is not to create a production-ready system. While we'll incorporate some libraries that are highly performant, we won't be following the absolute best practices for industry use so that we can instead make things a bit easier to prototype.
+    </p>
+    <p>
+      Requirements: <a href="https://docs.python.org/3/">Python 3</a>  |  <a href="https://flask.palletsprojects.com/en/2.3.x/">Flask</a>  |  <a href="http://whitenoise.evans.io">WhiteNoise</a>  |  <a href="https://gunicorn.org/#quickstart">Gunicorn</a>  |  free <a href="https://render.com/">Render</a> account | <a href="https://github.com">GitHub</a> account (recommended) </br>
+      (you can use pip to install "flask" and "whitenoise")
+    </p>
+    <p>
+      A number of cloud "platform as a service" tools exist for hosting web-based projects efficiently. In short, they allow you to upload web server code to a cloud backend which then does the hard part of making them web-accessible. While today we will make use of <a href="https://render.com/">Render</a>, there are many different providers. These include (in no particular order) <a href="https://azure.microsoft.com/en-us/">Microsoft Azure</a>, <a href="https://aws.amazon.com/websites/">AWS</a>, <a href="https://railway.app/">Railway</a>, <a href="https://fly.io/">Fly.io</a>, and <a href="https://www.digitalocean.com/">Digital Ocean</a> among many others. I encourage you to examine each and figure out which set of features and end-user agreement works best for you. For the purposes of this class, you should not need a paid account.
+    </p>
+    <p>
+      Important note: You may not need a full Render web service to host a basic homework project. While I am demoing a full web service today, check out Render's ability to serve <a href="https://render.com/docs/static-sites">static sites</a> which will likely suffice for HW1, HW2, etc.
+    </p>
+    <p>
+        Our system will involve the following components:
+    </p>
+    <ul>
+      <li>A Flask app holding the main web application code</li>
+      <li>A "static" folder holding static web files</li>
+      <li>requirements.txt telling Render what your project needs</li>
+      <li>An accessible repository to hold your code</li>
+      <li>A Render app to hold all of the files and run the project</li>
+    </ul>
+    <p>
+      At the conclusion of the class, you'll be able to find the files we used <a href="https://github.com/jeffrz/info4310-sp2024/tree/master/demos/render_demo_files">here</a>. You can access the Render site we created <a href="https://render-demo-sp24.onrender.com/">here</a>.
+    </p>
+    
+    <p>Commands used in the lecture:</p>
+    <pre>
+      
+      # Go on GitHub and make a new project for your code
+      #  (you can also add collaborators at this time)
+      
+      # Clone your repository on your computer
+      git clone -REPOSITORY URL-
+      
+      # Render needs a requirements file
+      #  Use a text editor of your choice. I use Atom, which can run from the command line
+      atom requirements.txt
+      
+      # It includes:
+      #   gunicorn - library that runs our code as a web service, must include
+      #   flask - imported in our .py
+      #   whitenoise - imported in our .py
+      
+      # Verify that you have installed all of the libraries you are requiring
+      pip install -r requirements.txt
+      
+      # Make a Flask app (make sure Python 3, Flask, and WhiteNoise are installed)
+      atom app.py
+      
+      # See the demo files for what we added to app.py
+
+      # At this point we also made a static directory and put some files in it for Whitenoise to serve
+
+      # Test Flask server to see if it works (command may just be python for your machine)
+      python app.py
+      
+      # Commit the changes to your local git repository
+      git status
+      git add app.py
+      git add requirements.txt
+      # etc. to add all changed/added files
+
+      # Now commit the changes and push to Github
+      git commit -m "first commit"
+      git push
+
+      # You now need to set up a project on Render. If is easiest if you connect your account
+      # Pick Web Services from the list and select your repository
+      
+      # Render usually figures out what kind of service you need, but it may get settings wrong
+      # Make sure you have set:
+      #   Python or Python 3.7 for Environment
+      #   pip install -r requirements.txt in Build Command
+      #   gunicorn app:app in Start Command
+
+      # Once you create your page, it will begin to build. Check the page for errors/logs
+      
+      # If you want to modify your page, commit the changes to your repository
+      # Then just use the Render menu to pull from your latest commit to update and rebuild
+
+    </pre>
+    
+  </div>
+</body>
+</html>
