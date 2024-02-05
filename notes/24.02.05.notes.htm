@@ -28,7 +28,7 @@
       
       #panel {
         height:400px; 
-        width:400px; 
+        width:300px; 
         float:left; 
         padding: 20 30 20 20;
       }
@@ -164,6 +164,8 @@
             .attr("stroke-width", 4)
             .attr("fill", lighten( genreScale(d['Main_Genre']) )) ;
         
+          updatePanel(d);
+
         });
         
         circles.on("mouseout", function(event, d) {
@@ -174,18 +176,42 @@
             .attr("stroke-width", 1)
             .attr("fill", genreScale(d['Main_Genre']) );
         
+          updatePanel( {} );
+
         });
           
           
+        
         // Make a panel to provide more info to the user, reinforce what mouseover is doing  
         let panelHeader = d3.select("#panel").append("h5");
         let table = d3.select("#panel").append("table");
         
+        // Remember this needs to be able to handle cases where row is {}
         function updatePanel(row) {
           
+          // // Original version at end of class
+          // let title = row.title;  // Becomes undefined if row is {}
+          // panelHeader.text(title);  // undefined makes the text blank -- good!
+          // let kvPairs = Object.entries(row);  // Just returns [] if row is {}
           
+          // * BONUS * AFTER CLASS MODIFICATION
+          // There is a title at the top, but we also have a title in our data table
+          // Let's get rid of the "title" key so our table is cleaner
+          let rowCopy = Object.assign({},row); // does a "shallow copy" of row so we can delete title
+          let title = rowCopy.title;
+          delete rowCopy.title;
+          panelHeader.text(title);
           
+          let kvPairs = Object.entries(rowCopy);
+          // console.log(kvPairs);
           
+          let rows = table.selectAll("tr").data(kvPairs)
+                          .join( enter => enter.append("tr"),
+                                 update => update.selectAll("td").remove(), 
+                                 exit => exit.remove() );
+          
+          rows.append("td").append("strong").text( d => d[0] );
+          rows.append("td").text( d => d[1] );
           
         }
         
@@ -207,17 +233,116 @@
         
         // Add a 2d brush to the chart area - allows for rectangular selection
         // Use *either* brush or lasso. They aren't friends
+
+        // // First make the brush and call it to paste the interactivitiy
+        // surface.call( d3.brush().on("start", brushStart).on("brush", brushed) );
         
+        // // We'll store a selection of points for use later
+        // let selection = [];
+
+        // // Initially, we thought to put selection=[] here to reset array
+        // // The problem was that brushStart only triggers when the brush is made
+        // // The brush continues existing, so selection needs to be reset more often
+        // function brushStart(event) {
+        //     console.log(event);
+        // }
         
-        
+        // // ** This is the first time we use destructuring this way
+        // // We start with brushed( event )
+        // // -- We know that event is a dictionary with the key selection in it
+        // // So we could destructure it by writing brushed( {selection} )
+        // // Then we can use selection like a variable
+        // // -- But... we also know that selection has the format [[num, num], [num, num]]
+        // // So we can destructure it further, right into 4 variables!
+        // function brushed( { selection: [[x0, y0],[x1, y1]] } ) {
+
+        //     selection = []; // Reset selection here so we don't keep adding same points
+        //                     // If it always starts empty for our search, there will be no stale copies
+        //     circles.each( function() { // .each iterates through d3 selections
+
+        //         let circ = d3.select(this);
+        //         let d = circ.datum();
+                
+        //         // get x and y loc from point (you could also leech from the .attr values)
+        //         let x = yearScale(d['year'])
+        //         let y = grossScale(d['worldwide_gross']+1);
+
+        //         // check if inside brush, add to array if so
+        //         if (((x > x0) && x < x1) && (y > y0 && y < y1)) {
+        //             selection.push(d);
+        //         }
+
+        //     })
+        //     updatePanelHeader( selection.length );
+
+        // }
+
         // Create a simple lasso tool for selection
         // Use *either* brush or lasso. They aren't friends
         
+        //  We'll keep a running array of coordinates [[x,y],[x,y],[x,y]...]
+        //  We will use the same <path> element to draw the current lasso using a line gen
+          var pathCoord = [];
+        var path = surface.append("path").attr("id","lasso");
+        var lineGen = d3.line().x( d => d[0] ).y( d => d[1] );
         
-        
-        
-        
-        
+        // To make it simple to track "click and move mouse" behaviors, we use a d3.drag
+        // It's going to try to "drag" the invisible <rect> we made -- we just don't move it
+        surface.call( d3.drag().on("start", lassoStart).on("drag",lassoed).on("end",lassoEnd) );
+
+        function lassoStart( event ) {
+          console.log(event)
+          pathCoord = [];
+          path.datum(pathCoord).attr("d", lineGen);
+          updateCircleSelection();
+        }
+        function lassoed( {x, y} ) {
+          console.log(event)
+
+          pathCoord.push( [x-margin.left,y-margin.top] );
+          path.datum(pathCoord).attr("d", lineGen);
+          updateCircleSelection();
+        }
+        function lassoEnd( event ) {
+          console.log(event)
+          pathCoord = [];
+          path.datum(pathCoord).attr("d", lineGen);
+          updateCircleSelection();
+        }
+
+        function updateCircleSelection() {
+
+          let selection = [];
+
+          // Base case - empty path   pathCoords = []
+          if (pathCoord.length < 1) {
+            circles.attr("fill", d => genreScale(d['Main_Genre']));
+          }
+          else {
+            circles.each( function() { // .each iterates through d3 selections
+              let circ = d3.select(this);
+              let d = circ.datum();
+              // get x and y loc from point (you could also leech from the .attr values)
+              let x = yearScale(d['year'])
+              let y = grossScale(d['worldwide_gross']+1);
+
+              // d3.polygonContains takes in a polygon as [[x,y],[x,y],[x,y]...]
+              // (Ideally those points go in a counter-clockwise winding, but it should work regardless)
+              // It will test whether a point [x,y] is inside of that polygon
+              if (d3.polygonContains( pathCoord, [x,y] )) {
+                selection.push( d );
+                circ.attr("fill", "red");
+              }
+              else {
+                circ.attr("fill", genreScale(d['Main_Genre']));
+              }
+
+            });
+          }
+
+          updatePanelHeader( selection.length );
+
+        }
         
         
         
