@@ -67,12 +67,12 @@
       const N = 200;
       let data = [];
       for (let i=0; i<N; i++) {
-          inputData[i].circles = [];
+          inputData[i].circles = [];  // Bonus lecture use
           data.push(inputData[i]);
       }
       
       // !! attributes to visualize
-      const attribs = ["average_rating", "users_rated","playing_time"];
+      const attribs = ["average_rating", "users_rated", "playing_time",];
   
       // 1. Let's make a scatterplot matrix cell
       const scatter = d3.select("svg#SPLOM");
@@ -91,12 +91,240 @@
       const scales = { "average_rating": d3.scaleLinear().domain(d3.extent(data, d => d['average_rating'])),
                        "users_rated": d3.scaleSymlog().domain(d3.extent(data, d => d['users_rated'])),
                        "playing_time": d3.scaleSymlog().domain(d3.extent(data, d => d['playing_time'])) };
+      //
 
+             
+      // 1. Make the cells
+      // Rather than making 9 copies of the code for each cell, we make a function to "paste" our cell
+      //  If you're very fancy, you can even make this work with .call like d3 axes do, but the code is confusing
+      //    ( look at the d3 source at https://github.com/d3/d3-axis/blob/main/src/axis.js to see how function axis() returns a function )
+      function createCell(startX, startY, xAttrib, yAttrib) {
+         
+        let cell = scatter.append("g").attr("class","cell")
+                                      .classed(xAttrib, true)
+                                      .classed(yAttrib, true)
+                                      .attr("transform",`translate(${startX},${startY})`);
+ 
+        let annotations = cell.append("g").attr("class","annotations");
+        let chartArea = cell.append("g").attr("class","points")
+                          .attr("transform",`translate(${chartMargin},${chartMargin})`);
+                            
+        cell.append("rect")
+                 .attr("class","border")
+                 .attr("x",0)
+                 .attr("y",0)
+                 .attr("width",cellWidth)
+                 .attr("height",cellHeight);  
+         
+         // copy the scales using the built-in copy function so each scale can be configured
+         // ** in this case we need to copy because scales may have different ranges **
+         //    e.g. for a diagonal cell scales[xAttrib] === scales[yAttrib] but they have different .range()
+        let yScale = scales[yAttrib].copy().range([chartHeight,0]);
+        let leftGridlines = d3.axisLeft(yScale)
+                              .tickSize(-cellWidth)
+                              .tickFormat("");          
+        annotations.append("g")
+          .attr("class", "y gridlines")
+          .call(leftGridlines);
+        let xScale = scales[xAttrib].copy().range([0,chartWidth]); 
+        let bottomGridlines = d3.axisBottom(xScale)
+                                .tickSize(-cellHeight)
+                                .tickFormat("");
+        annotations.append("g")
+          .attr("class", "x gridlines") 
+          .attr("transform",`translate(0,${cellHeight})`)
+          .call(bottomGridlines);
+ 
+        //data join to make the circles
+        let cellCircles = chartArea.selectAll("circle.point").data(data)
+                                   .join(enter => enter.append("circle")
+                                                       .attr("class","point")
+                                                       .attr("opacity", 0.8)
+                                                       // mouseovers etc here
+                                                    )
+                                   .attr("cx", d => xScale(d[xAttrib]))
+                                   .attr("cy", d => yScale(d[yAttrib]))
+                                   .attr("r", 7)
+                                   .attr("fill", "cornflowerblue" );    
+ 
+        // make a label on the corner cells
+        if (xAttrib === yAttrib) {
+          cell.append("g").style("font", "bold 12px sans-serif")
+                           .style("pointer-events", "none")
+                           .append("text")
+                           .attr("x", 10)
+                           .attr("y", 20)
+                           .text(xAttrib)
+         }
+ 
+        // Make a place for the brush to live
+        let brushGroup = cell.append("g").attr("class","brush");
+        //  ...storing some values in plain HTML in case we need them later
+        brushGroup.node().xAttrib = xAttrib;
+        brushGroup.node().xScale = xScale;
+        brushGroup.node().yAttrib = yAttrib;
+        brushGroup.node().yScale = yScale;
+         
+         
+        // EFFICIENCY IMPROVEMENT from bonus lecture
+        // We add each of the circles made in this cell to an array for its corresponding data point
+        // This allows us to run through the data once and then update all 9 cells' circles
+        cellCircles.each( function(d) {
+          d.circles.push( d3.select(this) );
+        });
+         
+ 
+         return cell;
+ 
+       } 
        
+       
+       // 2. Make all of the cells
+       let cells = [];
+       let brushGroups = [];
+       attribs.forEach( (xAttrib, xi) => {
+         attribs.forEach( (yAttrib, yi) => {
+           
+           // Make the cell
+           let xPos = xi * cellWidth;
+           let yPos = yi * cellHeight;
+           let cell = createCell(xPos, yPos, xAttrib, yAttrib);
+           
+           // Add a brush to it
+           let brush = d3.brush()
+               .extent([[0,0], [cellWidth,cellHeight]])
+               .on("start", startbrush)
+               .on("brush", brushed)
+               .on("end", endbrush);
+           
+           // Now we adjust the G tag holding the brush before we "paste" in the brush with .call
+           // We bind the "brush" object to the G tag's plain HTML
+           //  We need to do this so that we can later access the brush again to clear it
+           //  We store it in the HTML rather than as an object in our JS scope because events will be outside of this scope when they are triggered
+           //  Another way to do this is to define the "startbrush" function WITHIN the same scope as your brush (i.e. right here where this comment is) -- if you do it this way then you can nix the node().brush line and just use .call(brush.clear) in startbrush -- but it defines startbrush repeatedly and might have other scope issues down the line
+           
+           let brushGroup = cell.select(".brush");  // Get the brush group <g> from the cell
+           brushGroup.node().brush = brush   // Store the brush object for later use
+           brushGroup.call(brush);   // Apply the brush to the <g> tag
+           
+           // Store these in arrays just in case we need them
+           cells.push(cell.node());
+           brushGroups.push(brushGroup.node());
+           
+         } );
+       } );
+      
+      
+      // BEGIN BRUSHES
+      
+      // let currentBrush;  // uncomment for one active brush
+      function startbrush() {
+        // Bring this in if you want to only have one brush active at a time
+        // if (currentBrush !== this) {  // Check if we have a new brush at play
+        //   d3.select(currentBrush).call(this.brush.clear);  // Clear previous brush
+        //   currentBrush = this;  // Store new brush in currentBrush
+        // }  
+      }
+      function brushed( { selection } ) {
+        if (selection === null) return;   // endbrush handles this for us
         
+        updatePointAppearance();
         
+      }
+      function endbrush( { selection } ) {
+        // Return appearance if nothing selected
+        if (selection === null) {
+          updatePointAppearance();
+        }
+        // Otherwise end the brush (appearance already up to date from brushed() )
+        else {
+        }
+      }
+      
+      // Function to update all of the circles on the chart based on current filters
+      function updatePointAppearance() {
         
+        // // Naive version shown at end of class
+        // //  3 loops over all grid circles, slow
+        // scatter.selectAll(".point")
+        //        .attr("opacity", d => {
+        //          if ( inAreaAllBrushes(d, brushGroups) ) return 0.8
+        //          else return 0.08;
+        //        })
+        //        .attr("stroke", d => {
+        //          if ( inAreaAllBrushes(d, brushGroups) ) return "black";
+        //          else return "none";
+        //        })
+        //        .attr("stroke-width", d => {
+        //          if ( inAreaAllBrushes(d, brushGroups) ) return 1;
+        //          else return 0;
+        //        })
+        // 
         
+        // // Slightly better version from bonus lecture
+        // //  One loop through all grid circles, editing 3 properties at once
+        // scatter.selectAll(".point").each( function(d) {
+        //   if ( inAreaAllBrushes(d, brushGroups) ) {
+        //     d3.select(this).attr("opacity",0.8);//.attr("stroke","black").attr("stroke-width",1);
+        //   }
+        //   else {
+        //     d3.select(this).attr("opacity",0.08);//.attr("stroke","none").attr("stroke-width",0);
+        //   }
+        // })
+        
+        // Integrated version from bonus lecture - 1*numBrushes comparisons per data point
+        // The intuition here is that we can iterate through the data, do the comparisons, then just update
+        //  the appearance of circles accordingly
+        // No matter how many cells we have, they all point to the same data points!
+        // We earlier stored the SVG circles in the dataset's circles key so we could do these updates
+        data.forEach( d => {
+          let runningAnd = true;
+          brushGroups.forEach( function(brushGroup) {
+            let selection = d3.brushSelection(brushGroup)
+            if (selection === null) return;
+            [[x0, y0], [x1, y1]] = selection;
+            runningAnd = runningAnd && (( brushGroup.xScale.invert(x0-chartMargin) < d[brushGroup.xAttrib]) &&
+                                       ( brushGroup.xScale.invert(x1-chartMargin) > d[brushGroup.xAttrib]) &&
+                                       ( brushGroup.yScale.invert(y1-chartMargin) < d[brushGroup.yAttrib]) &&
+                                       ( brushGroup.yScale.invert(y0-chartMargin) > d[brushGroup.yAttrib]))
+                                     });
+          if (runningAnd) {
+            d.circles.forEach( circ => {
+              circ.attr("opacity",0.8);
+            })
+          }
+          else {
+            d.circles.forEach( circ => {
+              circ.attr("opacity",0.08);
+            })
+          }
+        });
+        
+        // Other efficiency ideas to think about
+        // Pre-computing the scale.invert or scaling the data values if the scale is expensive to run
+        // Ordering the brushes based on area so smaller, more selective ones run first and short-circuit
+        
+      }
+       
+      
+      // Function to test whether a point is in all of the filters
+      function inAreaAllBrushes( d, brushGroups) {
+        
+        let runningAnd = true;
+        brushGroups.forEach( function(brushGroup) {
+          let selection = d3.brushSelection(brushGroup)
+          if (selection === null) return;
+          
+          [[x0, y0], [x1, y1]] = selection;
+          runningAnd = runningAnd && (( brushGroup.xScale.invert(x0-chartMargin) < d[brushGroup.xAttrib]) &&
+                                     ( brushGroup.xScale.invert(x1-chartMargin) > d[brushGroup.xAttrib]) &&
+                                     ( brushGroup.yScale.invert(y1-chartMargin) < d[brushGroup.yAttrib]) &&
+                                     ( brushGroup.yScale.invert(y0-chartMargin) > d[brushGroup.yAttrib])) 
+         });
+         return runningAnd;
+      }   
+
+
 
     }
     loadScatter();
