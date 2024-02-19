@@ -135,8 +135,16 @@
                          .style("pointer-events","all");
                          
       // 1. build a pan-zoom handler
-      
-      
+      let zoomExtent = [[0,0],[chartWidth,chartHeight]];
+      let translateExtent = [[-100,-100],[chartWidth+100,chartHeight+100]];
+      var plotZoom = d3.zoom()
+                       .extent(zoomExtent)
+                       .translateExtent(translateExtent)
+                       .scaleExtent([1,10])
+                       .on("zoom", plotZoomed);                   
+                         
+      // then add the zoom handler
+      chartArea.call(plotZoom);
 
 
 
@@ -151,16 +159,97 @@
                                  .attr("opacity", 0.5);
       
       // 2. fill the minimap
+                              
+      // first trick - we're going to set our scales using the translate extents of the zoom handler instead of the data extents
+      //   this will allow us to accommodate bigger zoom windows                         
+      const minimapXScale = d3.scaleLinear().domain([xScale.invert(translateExtent[0][0]),
+                                                     xScale.invert(translateExtent[1][0])])
+                                     .range([0, minimapWidth]);
+      // for the y scale, we already flipped the big chart, so we don't want to flip the range here too
+      const minimapYScale = d3.scaleSymlog().domain([yScale.invert(translateExtent[0][1]),
+                                                     yScale.invert(translateExtent[1][1])])
+                                     .range([0, minimapHeight]);
       
-      
-      
+      let pointArea = minimapArea.append("g").attr("class","points")                       
+      pointArea.selectAll("circle.point").data(data)
+               .join("circle").attr("class","point")
+               .attr("cx", d => minimapXScale(d['average_rating']))
+               .attr("cy", d => minimapYScale(d['users_rated']))
+               .attr("r", 3)
+               .attr("opacity", 0.8)
+               .attr("fill", "steelblue");
 
 
       // 3. add a brush
+      //    NOTE: we add some CSS to disable the .handle in the brush
+      let brushGroup = minimapArea.append("g").attr("class","brush");
+      let brush = d3.brush()
+          .extent([[0,0], [minimapWidth,minimapHeight]])
+          //.on("start", startbrush)
+          .on("brush", brushed)
+          //.on("end", endbrush);
+      brushGroup.call(brush)   
+      
+      
+      function plotZoomed( { transform } ) {
+        
+        viewport.attr("transform", transform);
+
+        // update the scales on the axes/gridlines
+        // rescale does not modify the source scale, it just returns a copy
+        let txScale = transform.rescaleX(xScale);
+        let tyScale = transform.rescaleY(yScale);
+        xAxis.scale(txScale);
+        yAxis.scale(tyScale);
+        yGridlines.scale(txScale);
+        xGridlines.scale(tyScale);
+
+        // apply new scaled axes (no need for an animation .transition() since zoom triggers so many events)
+        d3.select("g.y.axis").call(yAxis);
+        d3.select("g.x.axis").call(xAxis);
+        d3.select("g.y.gridlines").call(yGridlines);
+        d3.select("g.x.gridlines").call(xGridlines);
+        
+        // adjust circle size too
+        circles.attr("r", 6 / transform.k);
+        
+        // use the transformed scales to figure out our bounding box in data space
+        let dataBounds = [[txScale.invert(0),tyScale.invert(0)],
+                          [txScale.invert(chartWidth),tyScale.invert(chartHeight)]];
+                          
+        let minimapBounds = [[minimapXScale( dataBounds[0][0] ),
+                              minimapYScale( dataBounds[0][1] )],
+                             [minimapXScale(dataBounds[1][0]),
+                              minimapYScale(dataBounds[1][1])]];
+
+        brushGroup.call(brush.move, minimapBounds)
+      }
+      
+      
+      function brushed( event ) {
+        
+        let transform = d3.zoomTransform(chartArea.node());   
+        let txScale = transform.rescaleX(xScale);
+        let tyScale = transform.rescaleY(yScale);
+        
+        // need to convert back to plotZoom's coordinate space 
+        let corner = [minimapXScale.invert(event.selection[0][0]),minimapYScale.invert(event.selection[0][1])];
+        
+        // how do we adjust the transform so that it fits nicely in the corner?
+        
+
+        // // We are now getting an infinite loop that crashes the browser when we add this line!
+        // // I'm commenting it out for now.
+        // // Can you figure out why it is happening (maybe by looking at the console)?
+        // chartArea.call(plotZoom.transform, transform);
+      }
       
       
       
       
+      
+      chartArea.call(plotZoom.transform, d3.zoomIdentity); // Executes zoomed() so that we can initiate the brush
+
 
     }
     drawPlot();
