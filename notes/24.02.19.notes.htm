@@ -227,6 +227,11 @@
       
       
       function brushed( event ) {
+
+        // this will go into an infinite loop if you don't catch the things triggered by plotZoomed programmatically
+        if (sourceEvent === undefined) {
+          return;
+        }
         
         let transform = d3.zoomTransform(chartArea.node());   
         let txScale = transform.rescaleX(xScale);
@@ -236,12 +241,15 @@
         let corner = [minimapXScale.invert(event.selection[0][0]),minimapYScale.invert(event.selection[0][1])];
         
         // how do we adjust the transform so that it fits nicely in the corner?
-        
+        // we take the existing one from the d3.zoom, and modify it
+        // because the displacement in x and y comes AFTER the zoom step in the transform attr, we must 
+        //  multiply the translation by transform.k to "pre-zoom" the displacement values
+        transform.x = -xScale(corner[0]) * transform.k;
+        transform.y = -yScale(corner[1]) * transform.k;
 
-        // // We are now getting an infinite loop that crashes the browser when we add this line!
-        // // I'm commenting it out for now.
-        // // Can you figure out why it is happening (maybe by looking at the console)?
-        // chartArea.call(plotZoom.transform, transform);
+        // // We were getting an infinite loop that crashes the browser when we added this line!
+        // // Can you figure out why it was happening (maybe by looking at the console)?
+        chartArea.call(plotZoom.transform, transform);
       }
       
       
