@@ -1,0 +1,141 @@
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>INFO 4310 - March-01</title>
+  <link href="https://fonts.googleapis.com/css?family=Lato:400,700|Raleway:400,700" rel="stylesheet">
+  
+  <link rel="stylesheet" type="text/css" href="../css/normalize.css">
+  <link rel="stylesheet" type="text/css" href="../css/skeleton.css">
+  <link rel="stylesheet" type="text/css" href="../css/custom-style.css">
+  
+  <style>
+  </style>
+  
+</head>
+<body>
+  <div class="container larger">
+    
+    
+    
+    <h4>2023.03.01 Geographic Data Brainstorm</h4>
+    
+    <div class="doc-section">
+      
+      <p>
+        In the past two weeks we have discussed papers about how tool interactions help analysts to make sense of data. Ben Shneiderman outlined a visualization mantra, "Overview first, zoom and filter, then details-on-demand." This week's papers discussed the users' need for context, describing alternative strategies for navigating complex data spaces. In this activity you will work together to brainstorm visualizations for a dataset that has both geographic and network components. You can choose the specific use case your group wants to pursue, but your design idea must provide the following functionality:
+        <ul>
+          <li>Effectively visualize some aspect of the dataset for users (you are not required to show both the network and geographic data, but you ought to try showing both)</li>
+          <li>Begin with an <strong>overview</strong> of the data.</li>
+          <li>Provide affordances for <strong>filtering</strong> or <strong>zooming</strong> through data.</li>
+          <li>Allow users to request and see some kind of <strong>details</strong> for data that interest them.</li>
+        </ul> 
+      </p>
+      
+      
+      
+      <p style="margin-top: 2rem; margin-bottom:0;">
+        <strong>Instructions</strong>
+      </p>
+        <strong>Step 1 - 5 minutes - [GROUP] Identify Key Goals</strong>
+        <ol class="narrow-list">
+          <li>As a group, read the instructions.</li>
+          <li>Together, identify a specific <strong>use case</strong> that you want to help users achieve through your visualization.</li>
+          <!---<li>In any remaining time, inspect some of the <strong>examples</strong> provided at the bottom.</li>--->
+        </ol>
+        <br/>
+        <strong>Step 2 - 10 minutes - [INDIV] Two sketches</strong>
+        <ol class="narrow-list">
+          <li>Now, working individually, begin making <strong>two very rough visualization sketches</strong> that best satisfy those tasks. Keep them low fidelity.</li>
+          <li>Refer back to the <strong>dataset</strong> and think about what you want to show.</li>
+          <li>Keep polishing your ideas until your group reconvenes.</li>
+        </ol>
+        <br/>
+        <strong>Step 3 - 20 minutes - [GROUP] Final design</strong>
+        <ol class="narrow-list">
+          <li>As a group, go around and discuss each person's sketches. Keep it to 1 minute per sketch.</li>
+          <li>Working together, create a <strong>consensus sketch</strong>. You will need to pick a group member to record your final idea and present it to the class, but everyone should sketch as they go.</li>
+          <li>We will reconvene at the end to check out everyone's ideas.</li>
+        </ol>
+        <p>Note that you may design for mobile multi-touch devices or traditional desktop platforms. Pick one.</p>
+    </div>
+
+    <div class="doc-section" >
+      <h5 style="padding-top:0;">Instructions</h5>
+      <p>
+        <a href="https://en.wikipedia.org/wiki/Containerization">Containerization</a> revolutionized the transportation of goods across the globe in the 20th century. Approximately 90% of non-bulk goods (i.e. not raw materials like coal) are transported within shipping containers on large freight vessels at sea. Goods are transported this way because it provides an extremely advantageous economy of scale. Instead of one boat hauling one kind of product, a massive boat can haul containers holding a vast array of products for different customers. Modern logistics systems can help to manage both the packing of containers on ships and their routes.
+      </p>
+      <p>
+        You may not be aware of <a href="https://www.marinetraffic.com/en/ais/home/centerx:-39.7/centery:32.5/zoom:3">just how many cargo vessels are on the ocean right now</a>. This massive amount of traffic between ports capable of handling large ships and containers creates a boatload of data to manage. These data combine the geographic (where ships are located, where ports are located), network information (ports connected by ship routes, passable regions of the ocean or canals), and traditional multivariate information (what is on a ship, how it is performing).
+      </p>
+      <p>
+        For this activity, you will <strong>brainstorm an interface that presents data about shipping</strong> for a specific kind of stakeholder. You will decide what kind of use case you want to address. For instance, you might consider:
+        <ul>
+          <li>A shipping manager tracking all of the containers that are outgoing and incoming for their company.</li>
+          <li>A government employee monitoring shipping during a major disruption such as the <a href="https://en.wikipedia.org/wiki/2021_Suez_Canal_obstruction">Ever Given canal blockage</a>.</li>
+          <li>An ecology major looking to identify the climate impacts of specific kinds of shipping and their carbon efficiency.</li>
+          <li>A logistics specialist trying to identify ports that are in need of upgrade or additional staffing.</li>
+          <li>A law enforcement agent seeking to identify unusual shipping patterns that indicate smuggling.</li>
+          <li>A customer wondering where all of the fancy fruit in their grocery store comes from during winter, and how it gets to their store.</li>
+        </ul>
+      </p>
+    </div>
+    
+    
+    <div class="doc-section" >
+      <h5 style="padding-top:0;">Your dataset</h5>
+      <p> 
+        Data are listed here as examples to help you brainstorm. Feel free to invent new kinds of data that are generally plausible if they will help you to accomplish your use case. 
+      </p>
+      <table>
+        <tr><td><strong>Data on containers such as:</strong></td><td></td></tr>
+        <tr><td> Container ID number </td><td>  </td></tr>
+        <tr><td> Loading date </td><td>   </td></tr>
+        <tr><td> Loading location/port </td><td>   </td></tr>
+        <tr><td> Scheduled unloading date  </td><td>   </td></tr>
+        <tr><td> Scheduled unloading port  </td><td>   </td></tr>
+        <tr><td> Contents of container </td><td>  </td></tr>
+        <tr><td> Whether it is refrigerated or heated </td><td> </td></tr>
+        <tr><td> The ship it is currently on </td><td>  </td></tr>
+      </table>
+      <table>
+        <tr><td><strong>Data on ships such as:</strong></td><td></td></tr>
+        <tr><td> Ship name </td><td> </td></tr>
+        <tr><td> Ship's flag (where it is registered) </td><td>   </td></tr>
+        <tr><td> Stats about ship (e.g., engine, size) </td><td>   </td></tr>
+        <tr><td> Current location </td><td>   </td></tr>
+        <tr><td> Planned route (past and future) </td><td>   </td></tr>
+        <tr><td> Status (e.g., loading, unloading, waiting near port, under way) </td><td>   </td></tr>
+        <tr><td> Is on time </td><td>  </td></tr>
+        <tr><td> Number of nautical miles traversed </td><td> </td></tr>
+        <tr><td> Details about crew </td><td>   </td></tr>
+        <tr><td> Manifest of all containers on board (aggregated or processed as you like) </td><td>   </td></tr>
+      </table>
+      <table>
+        <tr><td><strong>Data on ports or canals such as:</strong></td><td></td></tr>
+        <tr><td> Name/city of port </td><td> </td></tr>
+        <tr><td> Port's location </td><td>   </td></tr>
+        <tr><td> Port status (e.g., busy, broken down) </td><td>   </td></tr>
+        <tr><td> Current and future ship arrivals </td><td>   </td></tr>
+        <tr><td> Planned route (past and future) </td><td>   </td></tr>
+        <tr><td> Manifest of all containers to be loaded on ships (aggregated or processed as you like) </td><td>   </td></tr>
+        <tr><td> Manifest of all containers to be put on trucks (aggregated or processed as you like) </td><td>   </td></tr>
+      </table>
+      <table>
+        <tr><td><strong>You can also construct aggregate data for the ships. For example:</strong></td><td></td></tr>
+        <tr><td> Number of shipments between two ports or countries.  </td></tr>
+        <tr><td> Breakdown of contents of shipments between two ports or countries.  </td></tr>
+        <tr><td> Likelihood that a ship is going to travel from one port to another.  </td></tr>
+        <tr><td> Average number of shipments per year moving between two ports. </td></tr>
+        <tr><td> Min, max, and median lateness for an port or country. </td></tr>
+        <tr><td> Histogram of arrival times to show popular days for ship arrivals/departures. </td></tr>
+      </table>
+      <table>
+        <tr><td><strong>Finally, you can construct network data from this dataset. For example:</strong></td><td></td></tr>
+        <tr><td> Each port is a node and each edge is a single shipment. </td></tr>
+        <tr><td> Each country is a node and there is an edge if a container travels between them. <br/>Edges are weighted based on number of shipments or separated based on kind of cargo. </td></tr>
+      </table>
+    </div>
+    
+  </div>
+</body>
+</html>
