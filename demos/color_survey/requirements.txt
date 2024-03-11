@@ -1,0 +1,8 @@
+Flask
+Flask-Compress
+Flask-SQLAlchemy
+flask-cors
+gunicorn
+psycopg2
+SQLAlchemy
+whitenoise
