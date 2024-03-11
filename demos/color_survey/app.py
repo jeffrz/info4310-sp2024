@@ -24,11 +24,40 @@ cors = CORS(app)
 db = SQLAlchemy(app)
 
 # put your database class at the top of the file
-
-
+class Entry( db.Model ):
+    __tablename__ = "colorData"
+    
+    # specify the columns in our new table
+    id = db.Column(db.Integer, primary_key=True)
+    colorValue = db.Column(db.String(8), nullable=False)
+    colorName = db.Column(db.String(40), nullable=False)
+    genderIdentity = db.Column(db.String(2), nullable=False)
+    colorBlind = db.Column(db.String(10), nullable=False)
+    surveyType = db.Column(db.String(20), nullable=False)
+    
+    # init will make life easier later
+    def __init__(self, colVal, colName, genIdent, colBlind, survType):
+        self.colorValue = colVal
+        self.colorName = colName
+        self.genderIdentity = genIdent
+        self.colorBlind = colBlind
+        self.surveyType = survType
+    
+    # get data back easily
+    def getRow(self):
+        return [ self.id, self.colorValue, self.colorName, self.genderIdentity, self.colorBlind, self.surveyType ]
 
 # init database here
-
+# make our table if we need to make it
+engine = db.create_engine(SQLALCHEMY_DATABASE_URI)
+inspector = db.inspect(engine)
+if not inspector.has_table("colorData"):
+    with app.app_context():
+        # db.drop_all()  # DANGER: Only include this line if you want to delete ALL existing tables
+        db.create_all()
+        app.logger.info('Initialized the database!')
+else:
+    app.logger.info('Database already contains the colorData table.')
 
 
 # serve a hello world test page
@@ -60,21 +89,70 @@ def randomChroma():
         elif c == 'b':
             b = 255
     
-    return '#%02x%02x%02x' % (r, g, b)
+    return '#%02x%02x%02x' % (r, g, b)  #   
      
 
-# serve one of two survey templates to the user randomly
+# serve one survey template
 #  if they have POSTed data using a form, save that data in the DB and then serve a template
 @app.route('/survey', methods=['POST', 'GET'])
 def survey():
-    pass
+    
+    if request.method == "POST":
+        # handle getting data sent by clients
+        # push data into the database
+        surveyType = request.form['surveyType']
+        colName = request.form['colorName']
+        colValue = request.form['colorValue']
+        genIdent = request.form['genderIdent']
+        colBlind = request.form['colorBlind']
+        
+        # make an entry and commit into the db
+        e = Entry(colValue, colName, genIdent, colBlind, surveyType)
+        try:
+            db.session.add(e)
+            db.session.commit()
+        except Exception as e:
+            print("\n FAILED entry: {}\n".format(json.dumps(data)))
+            print(e)
+            sys.stdout.flush()
+            
+        
+        # store genIdent and colBlind to autofill
+        
+        
+    else:
+        genIdent=""
+        colBlind=""
+    
+    surveyTemplate = 'color_name_survey.htm'
+    
+    colName = ""
+    colValue = randomChroma()
+    
+    return render_template(surveyTemplate, colorName=colName,
+                                           colorVal=colValue,
+                                           genderIdent=genIdent,
+                                           colorBlind=colBlind ) 
+    
     
 
 # send a CSV of the database entries to the user
 #  usually not a good idea to publish raw DB contents, but here we have no identifiable information hopefully
 @app.route('/dump_data')    
 def dump():
-    pass
+    output = io.StringIO()  # this is an empty receptacle for string contents
+    writer = csv.writer(output)  # we feed in the output of the writer to the receptacle
+    writer.writerow( ['id','colorValue','colorName','genderIdentity','colorBlind','surveyType'] )
+    
+    # loop through all Entry rows in their table
+    entries = Entry.query.all()
+    for e in entries:
+        writer.writerow( e.getRow() )
+    
+    # compose a response
+    response = make_response( output.getvalue() )
+    response.headers['Content-Type'] = 'text/plain'  # specify a MIME type so the browser knows how to present it
+    return response
         
 
 if __name__ == "__main__":
