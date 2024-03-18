@@ -71,8 +71,48 @@
     context.lineCap = "round";
 
     // Handle touch events for as many fingers as will fit on screen
-    
-    
+    // Pointer events docs: https://developer.mozilla.org/en-US/docs/Web/API/Pointer_events
+    canvas.on("touchmove", event => {event.preventDefault(); }) // prevent scrolling
+      .on("pointerup", event => console.log("pointerup",event))
+      .on("pointerdown", event => {
+        console.log("pointerdown", event);
+        
+        // Every time a new pointer is put down, we need to set the canvas up to track that individual finger -- while you can make some fancy logic to do this all in one event, it's much easier to set up per-finger listeners when the finger is placed on the canvas.
+        
+        let id = event.pointerId;
+        let targetNode = event.target;
+        let prevPoint = null;
+        let point = d3.pointer(event, targetNode);
+        let color = d3.hsl(360 * Math.random(), 0.8, 0.7).hex()
+        
+        // Designate the canvas to consume all touch events from here on for this finger (even if they move beyond the canvas bounds
+        targetNode.setPointerCapture(id);
+        
+        // Make specfic events for this finger/touch
+        canvas.on(`pointerup.${id} pointercancel.${id}`, evt => {
+                if (evt.pointerId !== id) return;  // check in case we didn't get this pointer's event
+                
+                // clear out the events we added for this pointer and release the event capture
+                d3.select(targetNode).on(`.${id}`, null); 
+                targetNode.releasePointerCapture(id);
+              
+              })
+              .on(`pointermove.${id}`, evt => {
+                if (evt.pointerId !== id) return;  // check in case we didn't get this pointer's event
+                prevPoint = point;
+                point = d3.pointer(evt, targetNode);
+                if (prevPoint) {
+                  context.beginPath();
+                  context.lineWidth = 2;
+                  context.strokeStyle = color;
+                  context.moveTo(prevPoint[0], prevPoint[1]);
+                  context.lineTo(...point);  // using ellipses let's us automatically unpack the array
+                  context.lineCap = "round";
+                  context.stroke();
+                }
+              });
+        
+      });
     
     
     </script>
@@ -94,13 +134,63 @@
     }
     rect.attr("transform", makeTransform() );
     
-    // Starting status of gesture
+    // "Previous" status of gesture
+    // We will overwrite this as the touch progresses
     var pointerAngle = 0;
     var pointerPos = 0;
     var pointerDist = 0;
     
-    
-    
+    // For multiple touches at once, using the simple touch* events can be easier
+    // FYI, libraries can also automate this by giving you events like "pinch"
+    //  and you can occasionally see support for these in browsers
+    svg.on("touchstart", event => {
+      event.preventDefault();
+      touches = d3.pointers(event, event.target);
+      
+      if (touches.length === 2) {
+        let [t0x, t0y] = touches[0];
+        let [t1x, t1y] = touches[1];
+        
+        pointerAngle = Math.atan2(t1y-t0y, t1x-t0x);
+        pointerPos = [(t1x+t0x)/2, (t1y+t0y)/2];
+        pointerDist = Math.hypot(t1y-t0y, t1x-t0x);
+        
+      }
+      
+    }).on("touchmove", event => {
+      event.preventDefault();
+      touches = d3.pointers(event, event.target);
+      
+      if (touches.length === 2) {
+        let [t0x, t0y] = touches[0];
+        let [t1x, t1y] = touches[1];
+        
+        // Most recent data, which we will compare with past pointer* data
+        newAngle = Math.atan2(t1y-t0y, t1x-t0x);  // arc-tangent function
+        newPos = [(t1x+t0x)/2, (t1y+t0y)/2];      // mean/average
+        newDist = Math.hypot(t1y-t0y, t1x-t0x);   // hypoteneuse function
+        
+        // Use addition or multiplication here to "accumulate" the changes over time
+        // If you just use = to set it, then it will seem sluggish because changes
+        //  are always getting overwritten rather than built up
+        // Note, you *can* use the = strategy if you store ONLY the initial state
+        //  and don't update pointerAngle,Pos,Dist at the end of this function
+        //  But there may be some edge cases I haven't foreseen for doing that
+        angle += (newAngle - pointerAngle);
+        pos[0] += (newPos[0] - pointerPos[0]);
+        pos[1] += (newPos[1] - pointerPos[1]);
+        scale *= (newDist / pointerDist);
+        
+        rect.attr("transform", makeTransform() );
+        
+        // Store new data in pointer* values so that we can do next comparison
+        pointerAngle = newAngle;
+        pointerPos = newPos;
+        pointerDist = newDist;
+        
+      }
+      
+    })
     
     
     </script>
