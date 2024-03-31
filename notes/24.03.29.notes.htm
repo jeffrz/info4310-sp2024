@@ -129,9 +129,8 @@
         d.colorName = d.colorName.toLowerCase().trim();
       });
         
-      // New sort -- order by hue -  we will try this soon
-      // dataset.sort( (a, b) => d3.ascending(d3.hsl(a.colorValue).h, d3.hsl(b.colorValue).h) );
-      dataset.sort( (a, b) => d3.ascending(a.colorName, b.colorName) );
+      // New sort -- order by hue
+      dataset.sort( (a, b) => d3.ascending(d3.hsl(a.colorValue).h, d3.hsl(b.colorValue).h) );
       
       // Old sort -- alphabetic by name
       //  (we'll keep it as a copy to use in some of the demos)
@@ -169,8 +168,10 @@
     // Scales for animations:
     const circleSpeed = 50; // pixels per second
     const delaySpacing = 60; // time between circle launches
-    
-                                
+    // Finally, another function to figure out how long it *should* take for a circle to travel, given it moves at circleSpeed
+    let distanceTraveled = d => Math.sqrt(Math.pow(valueScale(d.l) * Math.cos( (d.h-90)*Math.PI/180.0 ), 2) +
+                                          Math.pow(valueScale(d.l) * Math.sin( (d.h-90)*Math.PI/180.0 ), 2) );
+    let constantSpeedDuration = d => Math.floor( (distanceTraveled(d) / circleSpeed ) * 1000 );                                
     
     // Store some values for improving transitions
     //  There may be UNTESTED race conditions during simultaneous animations!
@@ -181,27 +182,69 @@
     const updateSwoopChart = async (data, newDataIncoming) => {
       
       // Populate the table
-      updateSwoopTable( data, false )
+      updateSwoopTable( data, true )
       
+      
+      // Later on, we animated the center as well
+      //  Calling .start() or .end() on a transition returns a *promise*
+      //  With that promise you can use await in an async function to wait until the animation finishes
+      //  This isn't usually recommended because it blocks, but can work in this contexts
+      if (newDataIncoming) {
+        console.log("found new data, opening circle");
+        await circleSwoopCenter.transition()
+                               .delay(2000)
+                               .duration(1000)
+                               .ease(d3.easeBackOut)
+                               .attr("r", 24)
+                               .end();
+        console.log("done opening circle");
+      }
       
       // Modifying the basic data join from the March 18 lecture...
       console.log("beginning data join");
       let circles = circleSwoop.selectAll("circle.point").data(data, d => d.id)
                                  .join(
                                    enter => enter.append("circle").attr("class","point")
-                                                 .attr("fill", d => "#fff")
+                                                 .attr("fill", d => "#000")
                                                  .attr("stroke", d => d3.hsl(d.colorValue).l > 0.8 ? "#aaa" : "none")
-                                                 .attr("r", 0)
-                                                 .attr("cx", d => xPos( d3.hsl(d.colorValue)) )
-                                                 .attr("cy", d => yPos( d3.hsl(d.colorValue)) )
+                                                 .attr("cx", circleCenter.x-4 )
+                                                 .attr("cy", circleCenter.y-4 )
+                                                 .attr("r",8)
                                                  .call( enter => enter.transition()
-                                                                      .duration(1000)
-                                                                      .ease(d3.easeBackOut)
-                                                                      .attr("r", 8)
+                                                                      // Base delay on a variable 
+                                                                      // We do this because if new points get added, their index, i, can be very high and we don't want to wait i*60ms for it to show up
+                                                                      .delay( (d,i) => {currentSwoopDelay += delaySpacing; 
+                                                                                        return currentSwoopDelay})
+                                                                      // To avoid the center circles from looking weird, we use travel speed
+                                                                      .duration(d => constantSpeedDuration(d3.hsl(d.colorValue)) )
+                                                                      .ease(d3.easeExpOut)
                                                                       .attr("fill", d => d.colorValue)
+                                                                      .attr("cx", d => xPos( d3.hsl(d.colorValue)))
+                                                                      .attr("cy", d => yPos( d3.hsl(d.colorValue)))
+                                                                      // At start of animation, we track number of currently moving circles
+                                                                      // We also make the row of data appear in the chart
+                                                                      .on("start", (d, i, nodes) => {
+                                                                        activeSwoopTransitions++;
+                                                                        d3.selectAll("#plot-swoop-table tr.row")
+                                                                                  .filter( cd => d.id === cd.id )
+                                                                                  .style("display","table-row")
+                                                                      })
+                                                                      // Whenever an animation ends, we decrement transitions and check to see if this is the final circle that's animating. If so, we animate the middle to "close" it
+                                                                      .on("end", (d, i, nodes) => {
+                                                                        currentSwoopDelay -= delaySpacing;
+                                                                        --activeSwoopTransitions;
+                                                                        if (activeSwoopTransitions === 0) {
+                                                                          console.log("no more animations, closing circle");
+                                                                          circleSwoopCenter.transition()
+                                                                                           .duration(500)
+                                                                                           .attr("r", 0)
+                                                                          console.log("done closing circle");
+                                                                        }
+                                                                      })
                                                         )
                                                  ,
-                                   update => update 
+                                   update => update  // but... here is how you'd limit the update to ONLY nodes that ARE NOT animating
+                                                     .filter( function() { return d3.active(this) !== null } )
                                                    .attr("cx", d => xPos( d3.hsl(d.colorValue)) )
                                                    .attr("cy", d => yPos( d3.hsl(d.colorValue)) )
                                                    .attr("fill", d => d.colorValue)
@@ -259,10 +302,16 @@
     }
     
     
-    updateData();
-    
-    // Toggle this to turn on auto-updates
-    d3.interval( updateData, 10000 );
+    // Adding await here because the first updateData call may take a while due to Heroku
+    // Waiting for the first one guarantees that you don't get clashing updates once the timer starts
+    let main = async function() {
+      await updateData();
+      console.log("starting auto-updates");
+      
+      // Toggle this to turn on auto-updates
+      d3.interval( updateData, 10000 );
+    }
+    main();
     
     
     
