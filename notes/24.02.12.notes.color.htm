@@ -1,0 +1,337 @@
+<html>
+<head>
+  <title>INFO 4310 - Feb-12</title>
+  <link href="https://fonts.googleapis.com/css?family=Lato:400,700|Raleway:400,700" rel="stylesheet">
+  
+  <link rel="stylesheet" type="text/css" href="../css/normalize.css">
+  <link rel="stylesheet" type="text/css" href="../css/skeleton.css">
+  <link rel="stylesheet" type="text/css" href="../css/custom-style.css">
+  <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.2.0/styles/default.min.css">
+  <link rel="stylesheet" href="../css/hljs-base16.css">
+  <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/11.2.0/highlight.min.js"></script>
+  
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://d3js.org/topojson.v3.min.js"></script>
+  <style>
+  .gridlines line {
+    stroke: #bbb;
+  }
+
+  .gridlines .domain {
+    stroke: none;
+  }
+  
+  .border {
+    stroke: #333;
+    fill: none;
+  }
+  
+  </style>
+  
+</head>
+<body>
+  <div class="container larger">
+    <h3>Notes for February 12</h3>
+    <p>
+      Today we're going to make some linked views in a scatterplot matrix (SPLOM). We'll first code it up in an obvious way, then we'll explore some other implementation patterns for making interactions a bit more fluid.
+    </p>
+    <h5> This version adds color based on number of intersections. Check the brush functions. </h5>
+    
+    
+    <h5>HTML for today:</h5>
+    
+      <svg id="SPLOM" height="1080" width="1080">
+        
+      </svg>
+    
+    <h5>Code for today:</h5>
+    <pre>
+      <code id="display1" class="hljs javascript">
+      </code>
+    </pre>
+    
+    
+    
+    
+    
+    <script id="notes1">
+  
+  
+  
+    
+    // 0. Get some data together
+    const loadScatter = async function() {
+      
+      const inputData = await d3.csv("../datasets/board-games-simplified.csv", d3.autoType )
+      
+      // !! subsample the data -- at most 10,106 points
+      const N = 200;
+      let data = [];
+      for (let i=0; i<N; i++) {
+          inputData[i].circles = [];
+          data.push(inputData[i]);
+      }
+      
+      // !! attributes to visualize -- we later loop through these to compose the matrix
+      const attribs = ["average_rating", "users_rated","playing_time"];
+  
+      // 1. Let's make a scatterplot matrix cell
+      const scatter = d3.select("svg#SPLOM");
+      const width = scatter.attr("width");
+      const height = scatter.attr("height");
+      
+      // dimensions of each cell - must be square and have same margins on all sides
+      //   NOTE: some SPLOMs do use non-square dimensions and some GPLOMs mix different kinds of charts together
+      const cellWidth =  Math.min( Math.floor(height / attribs.length), Math.floor(width / attribs.length) );
+      const cellHeight = cellWidth;
+      const chartMargin = 10;
+      const chartWidth = cellWidth - (2*chartMargin);
+      const chartHeight = cellHeight - (2*chartMargin);
+      
+
+      // !! scales for cells
+      const scales = { "average_rating": d3.scaleLinear().domain(d3.extent(data, d => d['average_rating'])),
+                       "users_rated": d3.scaleSymlog().domain(d3.extent(data, d => d['users_rated'])),
+                       "playing_time": d3.scaleSymlog().domain(d3.extent(data, d => d['playing_time'])) };
+
+       
+      // 1. Make the cells
+      // Rather than making 9 copies of the code for each cell, we make a function to "paste" our cell
+      //  If you're very fancy, you can even make this work with .call like d3 axes do, but the code is confusing
+      //    ( look at the d3 source at https://github.com/d3/d3-axis/blob/main/src/axis.js to see how function axis() returns a function )
+      function createCell(startX, startY, xAttrib, yAttrib) {
+         
+        let cell = scatter.append("g").attr("class","cell")
+                                     .classed(xAttrib, true)
+                                     .classed(yAttrib, true)
+                                     .attr("transform",`translate(${startX},${startY})`);
+
+        let annotations = cell.append("g").attr("class","annotations");
+        let chartArea = cell.append("g").attr("class","points")
+                           .attr("transform",`translate(${chartMargin},${chartMargin})`);
+                           
+        cell.append("rect")
+                .attr("class","border")
+                .attr("x",0)
+                .attr("y",0)
+                .attr("width",cellWidth)
+                .attr("height",cellHeight);  
+        
+        // copy the scales using the built-in copy function so each scale can be configured
+        // ** in this case we need to copy because scales may have different ranges **
+        //    e.g. for a diagonal cell scales[xAttrib] === scales[yAttrib] but they have different .range()
+        let yScale = scales[yAttrib].copy().range([chartHeight,0]);
+        let leftGridlines = d3.axisLeft(yScale)
+                             .tickSize(-cellWidth)
+                             .tickFormat("");          
+        annotations.append("g")
+         .attr("class", "y gridlines")
+         .call(leftGridlines);
+        let xScale = scales[xAttrib].copy().range([0,chartWidth]); 
+        let bottomGridlines = d3.axisBottom(xScale)
+                               .tickSize(-cellHeight)
+                               .tickFormat("");
+        annotations.append("g")
+         .attr("class", "x gridlines") 
+         .attr("transform",`translate(0,${cellHeight})`)
+         .call(bottomGridlines);
+
+        //data join to make the circles
+        let cellCircles = chartArea.selectAll("circle.point").data(data)
+                                  .join(enter => enter.append("circle")
+                                                      .attr("class","point")
+                                                      .attr("opacity", 0.5)
+                                                      // mouseovers etc here
+                                                   )
+                                  .attr("cx", d => xScale(d[xAttrib]))
+                                  .attr("cy", d => yScale(d[yAttrib]))
+                                  .attr("r", 7)
+                                  .attr("fill", "cornflowerblue" );    
+
+        // make a label on the corner cells
+        if (xAttrib === yAttrib) {
+          cell.append("g").style("font", "bold 12px sans-serif")
+                          .style("pointer-events", "none")
+                          .append("text")
+                          .attr("x", 10)
+                          .attr("y", 20)
+                          .text(xAttrib)
+        }
+
+        // Make a place for the brush to live
+        let brushGroup = cell.append("g").attr("class","brush");
+        //  ...storing some values in plain HTML in case we need them later
+        brushGroup.node().xAttrib = xAttrib;
+        brushGroup.node().xScale = xScale;
+        brushGroup.node().yAttrib = yAttrib;
+        brushGroup.node().yScale = yScale;
+        
+        
+        // EFFICIENCY IMPROVEMENT from end of class
+        // We add each of the circles made in this cell to an array for its corresponding data point
+        // This allows us to run through the data once and then update all 9 cells' circles
+        cellCircles.each( function(d) {
+          d.circles.push( d3.select(this) );
+        });
+        
+
+        return cell;
+
+      } 
+      
+      
+      // 2. Make all of the cells
+      let cells = [];
+      let brushGroups = [];
+      attribs.forEach( (xAttrib, xi) => {
+        attribs.forEach( (yAttrib, yi) => {
+          
+          // Make the cell
+          let xPos = xi * cellWidth;
+          let yPos = yi * cellHeight;
+          let cell = createCell(xPos, yPos, xAttrib, yAttrib);
+          
+          // Add a brush to it
+          let brush = d3.brush()
+              .extent([[0,0], [cellWidth,cellHeight]])
+              .on("start", startbrush)
+              .on("brush", brushed)
+              .on("end", endbrush);
+          
+          // Now we adjust the G tag holding the brush before we "paste" in the brush with .call
+          // We bind the "brush" object to the G tag's plain HTML
+          //  We need to do this so that we can later access the brush again to clear it
+          //  We store it in the HTML rather than as an object in our JS scope because events will be outside of this scope when they are triggered
+          //  Another way to do this is to define the "startbrush" function WITHIN the same scope as your brush (i.e. right here where this comment is) -- if you do it this way then you can nix the node().brush line and just use .call(brush.clear) in startbrush -- but it defines startbrush repeatedly and might have other scope issues down the line
+          
+          let brushGroup = cell.select(".brush");  // Get the brush group <g> from the cell
+          brushGroup.node().brush = brush   // Store the brush object for later use
+          brushGroup.call(brush);   // Apply the brush to the <g> tag
+          
+          // Store these in arrays just in case we need them
+          cells.push(cell.node());
+          brushGroups.push(brushGroup.node());
+          
+        } );
+      } );
+      
+      
+      // BEGIN BRUSHES
+      let colorScale = function(value) { return "#coral"; };  // default color scale is one that just assigns 'coral'
+      
+      // Count up number of active brushes and update color scale
+      function updateColorScale() {
+        let numBrushes = 0;
+        brushGroups.forEach( function(brushGroup) {
+          let selection = d3.brushSelection(brushGroup);
+          if (selection !== null) numBrushes++;
+        } );
+        console.log(numBrushes)
+        if (numBrushes < 1) {
+          colorScale = function(value) { return "cornflowerblue"; }  // default
+        }
+        else {
+          brushScale = d3.scaleLinear().domain([0, numBrushes])
+                                       .range( [0.2, 1] );
+          colorScale = function(value) { return d3.interpolateYlGnBu(brushScale(value)); }
+          // Here we are using a clever trick -- interpolateYlGnBu takes in a number between 0 and 1 and outputs a color
+          //  on its custom color scale -- we are using brushScale to generate a number between 0 and 1 and feed it to interpolate
+          // In practice, this is actually what scaleSequential is doing behind the scenes most of the time
+        }
+          
+      }
+      
+      
+      function startbrush() {
+        
+        updateColorScale();
+          
+      }
+      function endbrush( { selection } ) {
+        // Return appearance if nothing selected
+        if (selection === null) {
+          updateColorScale();   // a brush was just removed, so update the color scale
+          updatePointAppearance();
+        }
+        // Otherwise end the brush (appearance already up to date)
+        else {
+        }
+      }
+      function brushed( { selection } ) {
+        if (selection === null) return;   // endbrush handles this
+        
+        updatePointAppearance();
+        
+      }
+      
+      // Function to update all of the circles on the chart based on current filters
+      function updatePointAppearance() {
+        
+        // First, in startbrush, we made a color scale based on the number of active brushes
+        
+        // We'll keep a running count of filter matches
+        data.forEach( d => {
+          let runningCount = 0;
+          brushGroups.forEach( function(brushGroup) {
+            let selection = d3.brushSelection(brushGroup)
+            if (selection === null) return;
+            [[x0, y0], [x1, y1]] = selection;
+            if (( brushGroup.xScale.invert(x0-chartMargin) < d[brushGroup.xAttrib]) &&
+                ( brushGroup.xScale.invert(x1-chartMargin) > d[brushGroup.xAttrib]) &&
+                ( brushGroup.yScale.invert(y1-chartMargin) < d[brushGroup.yAttrib]) &&
+                ( brushGroup.yScale.invert(y0-chartMargin) > d[brushGroup.yAttrib]))
+                { 
+                  runningCount += 1
+                 }
+                                     });  
+                                     
+          d.count = runningCount; // for debug
+          
+          d.circles.forEach( circ => {
+            circ.attr("fill", colorScale(runningCount) );
+          })
+          
+            
+        });
+        
+        
+
+        
+        // Other efficiency ideas to think about
+        // Pre-computing the scale.invert or scaling the data values if the scale is expensive to run
+        // Ordering the brushes based on area so smaller, more selective ones run first and short-circuit (thanks Sam)
+        
+      }
+       
+      
+        
+
+    }
+    loadScatter();
+    
+  
+    
+    </script>
+    
+    
+    
+    
+    
+    <!--- calls the highlight library to fill the <pre> tag with code --->
+    <script>
+    
+    function sanitize(s) {
+      return s.replace("<br>", "\\n")
+              .replace(/&/g, "&amp;")
+              .replace(/</g, "&lt;")
+              .replace(/>/g, "&gt;")
+              .replace(/"/g, "&quot;")
+              .replace(/'/g, "&#039;");
+            }
+      document.getElementById("display1").innerHTML = sanitize( document.getElementById("notes1").innerText);
+      hljs.highlightAll();
+    </script>    
+    
+  </div>
+</body>
+</html>
